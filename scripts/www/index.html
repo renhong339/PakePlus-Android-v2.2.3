@@ -1,11 +1,1351 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>股票持仓记录（HBuilder打包专用）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      background: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+    .card-title {
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 12px;
+      font-size: 16px;
+    }
+    .form-label {
+      font-size: 13px;
+      color: #475569;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      font-size: 14px;
+    }
+    .btn {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+    }
+    .btn-secondary {
+      background: #64748b;
+      color: white;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 14px;
+    }
+    .info-row-sm {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .text-primary {
+      color: #2563eb;
+      font-weight: 600;
+    }
+    .text-success {
+      color: #16a34a;
+      font-weight: 600;
+    }
+    .text-danger {
+      color: #dc2626;
+      font-weight: 600;
+    }
+    .text-warning {
+      color: #d97706;
+      font-weight: 600;
+    }
+    .header {
+      background: linear-gradient(90deg, #1d4ed8, #3b82f6);
+      color: white;
+    }
+
+    .qty-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .qty-btn {
+      width: 44px;
+      height: 42px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .qty-input {
+      flex: 1;
+      text-align: center;
+    }
+
+    .tab-container {
+      display: flex;
+      background: white;
+      border-radius: 12px;
+      margin: 0 auto 16px;
+      max-width: 400px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: all 0.2s;
+      font-weight: 500;
+      font-size: 15px;
+    }
+    .tab-btn.active {
+      background: #2563eb;
+      color: white;
+    }
+    .page {
+      display: none;
+    }
+    .page.active {
+      display: block;
+    }
+
+    .filter-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      padding: 16px;
+      border-radius: 12px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .stat-item:last-child {
+      border-bottom: none;
+    }
+    .stat-label {
+      color: #475569;
+      font-size: 14px;
+    }
+    .stat-value {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .chart-container {
+      height: 300px;
+      width: 100%;
+      margin: 16px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header py-5 px-4 text-center">
+    <h1 class="text-xl font-semibold m-0">股票持仓记录</h1>
+    <p class="text-xs opacity-80 mt-1">HBuilder打包专用 | 完美兼容</p>
+  </div>
+
+  <div class="tab-container px-4">
+    <div class="tab-btn active" onclick="switchPage('summary')">汇总</div>
+    <div class="tab-btn" onclick="switchPage('independent')">独立</div>
+    <div class="tab-btn" onclick="switchPage('analysis')">统计分析</div>
+  </div>
+
+  <!-- 汇总页面 -->
+  <div id="summary" class="page active max-w-lg mx-auto p-4 space-y-5">
+    <div class="card p-4">
+      <div class="card-title">交易录入</div>
+      <form id="tradeFormSummary" class="space-y-4">
+        <div>
+          <label class="form-label">交易时间</label>
+          <input type="datetime-local" id="tradeTimeSummary" class="form-input" required>
+        </div>
+        <div>
+          <label class="form-label">股票名称/代码</label>
+          <input list="stockListSummary" id="stockNameSummary" class="form-input" placeholder="选择或输入股票">
+          <datalist id="stockListSummary"></datalist>
+        </div>
+        <div>
+          <label class="form-label">类型</label>
+          <select id="tradeTypeSummary" class="form-input">
+            <option value="buy">买入</option>
+            <option value="sell">卖出</option>
+            <option value="dividend">股息收入</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">价格（元）</label>
+          <input type="number" id="priceSummary" class="form-input" step="0.01" min="0" value="0">
+        </div>
+
+        <div id="qtySectionSummary">
+          <label class="form-label" id="qtyLabelSummary">数量（股）</label>
+          <div class="qty-group">
+            <button type="button" class="qty-btn" id="btnMinusSummary">-</button>
+            <input type="number" id="quantitySummary" class="form-input qty-input">
+            <button type="button" class="qty-btn" id="btnPlusSummary">+</button>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 p-3 rounded-xl">
+          <div class="info-row"><span>金额：</span><span id="tradeAmountSummary">0.00</span></div>
+          <div class="info-row info-row-sm"><span>佣金：</span><span id="feeSummary">0.00</span></div>
+          <div class="info-row info-row-sm"><span>过户费：</span><span id="transferSummary">0.00</span></div>
+          <div class="info-row info-row-sm" id="taxWrapSummary"><span>印花税：</span><span id="taxSummary">0.00</span></div>
+          <div class="info-row border-t pt-2 mt-1"><span>本次净额：</span><span id="netAmountSummary" class="font-semibold">0.00</span></div>
+        </div>
+
+        <div class="flex gap-3">
+          <button class="btn btn-primary flex-1">保存</button>
+          <button type="button" class="btn btn-secondary flex-1" id="resetBtnSummary">重置</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">当前股价测算</div>
+      <div class="space-y-4">
+        <div>
+          <label class="form-label">输入当前股价（元）</label>
+          <input type="number" id="currentPriceSummary" class="form-input" step="0.01" min="0" placeholder="输入后自动计算">
+        </div>
+        <div class="bg-gray-50 p-3 rounded-xl space-y-1">
+          <div class="info-row"><span>持仓市值：</span><span id="marketValSummary">0.00</span></div>
+          <div class="info-row"><span>浮动盈亏：</span><span id="floatProfitSummary">0.00</span></div>
+          <div class="info-row info-row-sm"><span>预计佣金：</span><span id="estFeeSummary">0.00</span></div>
+          <div class="info-row info-row-sm"><span>预计过户费：</span><span id="estTfSummary">0.00</span></div>
+          <div class="info-row info-row-sm"><span>预计印花税：</span><span id="estTaxSummary">0.00</span></div>
+          <div class="info-row border-t pt-2 mt-1"><span>全部卖出到手：</span><span id="realProfitSummary" class="text-success font-bold">0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">当前持仓</div>
+      <div id="positionSummary" class="text-gray-500 text-center py-2">暂无持仓</div>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">数据管理</div>
+      <div class="flex gap-3 flex-wrap">
+        <button id="exportDataSummary" class="btn btn-primary flex-1">导出备份</button>
+        <button id="importDataSummary" class="btn btn-secondary flex-1">导入数据</button>
+        <input type="file" id="importFileSummary" class="hidden" accept=".json">
+      </div>
+      <div class="text-xs text-gray-500 mt-2">导出：自动保存到手机下载目录</div>
+    </div>
+
+    <div class="card p-4">
+      <div class="flex justify-between items-center mb-3">
+        <div class="card-title m-0">历史记录</div>
+        <div class="gap-2 flex">
+          <button id="exportExcelSummary" class="btn btn-primary text-xs px-2 py-1">导出Excel</button>
+          <button id="clearAllSummary" class="btn btn-danger text-xs px-2 py-1">清空全部</button>
+        </div>
+      </div>
+      <div id="historySummary" class="max-h-96 overflow-y-auto space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- 独立页面 -->
+  <div id="independent" class="page max-w-lg mx-auto p-4 space-y-5">
+    <div class="card p-4">
+      <div class="card-title">交易录入</div>
+      <form id="tradeFormIndependent" class="space-y-4">
+        <div>
+          <label class="form-label">交易时间</label>
+          <input type="datetime-local" id="tradeTimeIndependent" class="form-input" required>
+        </div>
+        <div>
+          <label class="form-label">股票名称/代码</label>
+          <input list="stockListIndependent" id="stockNameIndependent" class="form-input" placeholder="选择或输入股票">
+          <datalist id="stockListIndependent"></datalist>
+        </div>
+        <div>
+          <label class="form-label">类型</label>
+          <select id="tradeTypeIndependent" class="form-input">
+            <option value="buy">买入</option>
+            <option value="sell">卖出</option>
+            <option value="dividend">股息收入</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">价格（元）</label>
+          <input type="number" id="priceIndependent" class="form-input" step="0.01" min="0" value="0">
+        </div>
+
+        <div id="qtySectionIndependent">
+          <label class="form-label" id="qtyLabelIndependent">数量（股）</label>
+          <div class="qty-group">
+            <button type="button" class="qty-btn" id="btnMinusIndependent">-</button>
+            <input type="number" id="quantityIndependent" class="form-input qty-input">
+            <button type="button" class="qty-btn" id="btnPlusIndependent">+</button>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 p-3 rounded-xl">
+          <div class="info-row"><span>金额：</span><span id="tradeAmountIndependent">0.00</span></div>
+          <div class="info-row info-row-sm"><span>佣金：</span><span id="feeIndependent">0.00</span></div>
+          <div class="info-row info-row-sm"><span>过户费：</span><span id="transferIndependent">0.00</span></div>
+          <div class="info-row info-row-sm" id="taxWrapIndependent"><span>印花税：</span><span id="taxIndependent">0.00</span></div>
+          <div class="info-row border-t pt-2 mt-1"><span>本次净额：</span><span id="netAmountIndependent" class="font-semibold">0.00</span></div>
+        </div>
+
+        <div class="flex gap-3">
+          <button class="btn btn-primary flex-1">保存</button>
+          <button type="button" class="btn btn-secondary flex-1" id="resetBtnIndependent">重置</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">当前股价测算</div>
+      <div class="space-y-4">
+        <div>
+          <label class="form-label">输入当前股价（元）</label>
+          <input type="number" id="currentPriceIndependent" class="form-input" step="0.01" min="0" placeholder="输入后自动计算">
+        </div>
+        <div class="bg-gray-50 p-3 rounded-xl space-y-1">
+          <div class="info-row"><span>持仓市值：</span><span id="marketValIndependent">0.00</span></div>
+          <div class="info-row"><span>浮动盈亏：</span><span id="floatProfitIndependent">0.00</span></div>
+          <div class="info-row info-row-sm"><span>预计佣金：</span><span id="estFeeIndependent">0.00</span></div>
+          <div class="info-row info-row-sm"><span>预计过户费：</span><span id="estTfIndependent">0.00</span></div>
+          <div class="info-row info-row-sm"><span>预计印花税：</span><span id="estTaxIndependent">0.00</span></div>
+          <div class="info-row border-t pt-2 mt-1"><span>全部卖出到手：</span><span id="realProfitIndependent" class="text-success font-bold">0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">当前持仓</div>
+      <div id="positionIndependent" class="text-gray-500 text-center py-2">暂无持仓</div>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">数据管理</div>
+      <div class="flex gap-3 flex-wrap">
+        <button id="exportDataIndependent" class="btn btn-primary flex-1">导出备份</button>
+        <button id="importDataIndependent" class="btn btn-secondary flex-1">导入数据</button>
+        <input type="file" id="importFileIndependent" class="hidden" accept=".json">
+      </div>
+      <div class="text-xs text-gray-500 mt-2">导出：自动保存到手机下载目录</div>
+    </div>
+
+    <div class="card p-4">
+      <div class="flex justify-between items-center mb-3">
+        <div class="card-title m-0">历史记录</div>
+        <div class="gap-2 flex">
+          <button id="exportExcelIndependent" class="btn btn-primary text-xs px-2 py-1">导出Excel</button>
+          <button id="clearAllIndependent" class="btn btn-danger text-xs px-2 py-1">清空全部</button>
+        </div>
+      </div>
+      <div id="historyIndependent" class="max-h-96 overflow-y-auto space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- 统计分析页面 -->
+  <div id="analysis" class="page max-w-lg mx-auto p-4 space-y-5">
+    <div class="card p-4">
+      <div class="card-title">筛选条件</div>
+      <div class="space-y-4">
+        <div>
+          <label class="form-label">数据源</label>
+          <select id="analysisSource" class="form-input">
+            <option value="summary">汇总页面数据</option>
+            <option value="independent">独立页面数据</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <div>
+            <label class="form-label">股票名称</label>
+            <input type="text" id="filterStockName" class="form-input" placeholder="模糊匹配">
+          </div>
+          <div>
+            <label class="form-label">交易类型</label>
+            <select id="filterTradeType" class="form-input">
+              <option value="all">全部类型</option>
+              <option value="buy">买入</option>
+              <option value="sell">卖出</option>
+              <option value="dividend">股息收入</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">时间范围-开始</label>
+            <input type="datetime-local" id="filterTimeStart" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">时间范围-结束</label>
+            <input type="datetime-local" id="filterTimeEnd" class="form-input">
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <div>
+            <label class="form-label">盈亏区间-最小值</label>
+            <input type="number" id="filterProfitMin" class="form-input" step="0.01" placeholder="例如：-100">
+          </div>
+          <div>
+            <label class="form-label">盈亏区间-最大值</label>
+            <input type="number" id="filterProfitMax" class="form-input" step="0.01" placeholder="例如：1000">
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">当期股价（元）</label>
+          <input type="number" id="currentAnalysisPrice" class="form-input" step="0.01" min="0" placeholder="输入当前股价计算实时盈亏">
+        </div>
+
+        <button id="btnFilter" class="btn btn-primary w-full">执行筛选分析</button>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">核心统计指标</div>
+      <div id="statMetrics" class="space-y-2">
+        <div class="stat-item">
+          <span class="stat-label">总交易次数</span>
+          <span class="stat-value" id="totalTrades">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">总投入金额</span>
+          <span class="stat-value" id="totalInvest">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">总卖出金额</span>
+          <span class="stat-value" id="totalSell">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">总股息收入</span>
+          <span class="stat-value" id="totalDividend">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">总交易费用</span>
+          <span class="stat-value" id="totalFees">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">总盈亏</span>
+          <span class="stat-value text-success" id="totalProfit">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">胜率（盈利交易占比）</span>
+          <span class="stat-value" id="winRate">0.00%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">持股盈亏统计（按当前股价）</div>
+      <div id="holdingProfitMetrics" class="space-y-2">
+        <div class="stat-item">
+          <span class="stat-label">当前持仓总股数</span>
+          <span class="stat-value" id="totalHoldingShares">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">当前持仓市值</span>
+          <span class="stat-value" id="totalHoldingMarketValue">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">持仓总成本</span>
+          <span class="stat-value" id="totalHoldingCost">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">浮动盈亏</span>
+          <span class="stat-value text-success" id="totalFloatingProfit">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">浮动盈亏率</span>
+          <span class="stat-value" id="floatingProfitRate">0.00%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">卖出预计到手金额</span>
+          <span class="stat-value" id="expectedSellAmount">0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">股票持仓分布</div>
+      <div class="chart-container">
+        <canvas id="stockHoldingsChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title">交易盈亏趋势</div>
+      <div class="chart-container">
+        <canvas id="profitTrendChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="flex justify-between items-center mb-3">
+        <div class="card-title m-0">筛选结果明细</div>
+        <button id="exportAnalysisExcel" class="btn btn-primary text-xs px-2 py-1">导出Excel</button>
+      </div>
+      <div id="analysisResultList" class="max-h-96 overflow-y-auto space-y-2 text-sm">
+        <div class="text-gray-500 text-center py-3">请先设置筛选条件并执行分析</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔥 放在最底部：整体数据导入导出 -->
+  <div class="max-w-lg mx-auto px-4 pb-8 mt-6">
+    <div class="card p-4">
+      <div class="card-title">整体数据管理（全部数据）</div>
+      <div class="flex gap-3 flex-wrap">
+        <button id="exportAllData" class="btn btn-primary flex-1">✅ 导出全部数据</button>
+        <button id="importAllData" class="btn btn-secondary flex-1">📂 导入全部数据</button>
+        <input type="file" id="importAllFile" class="hidden" accept=".json">
+      </div>
+      <div class="text-xs text-gray-500 mt-2">
+        导出：汇总页面 + 独立页面 → 一个文件<br>
+        导入：覆盖所有数据，请谨慎操作
+      </div>
+    </div>
+  </div>
+
+<script>
+let currentPage = 'summary';
+let holdingsChart = null;
+let profitChart = null;
+
+// 🔥 整体导出所有数据
+function exportAllAppData() {
+  const allData = {
+    summary: {
+      data: JSON.parse(localStorage.getItem('summary_STOCK_DATA')) || [],
+      stockList: JSON.parse(localStorage.getItem('summary_STOCK_NAMES')) || [],
+      lastQty: localStorage.getItem('summary_LAST_QTY') || '400'
+    },
+    independent: {
+      data: JSON.parse(localStorage.getItem('independent_STOCK_DATA')) || [],
+      stockList: JSON.parse(localStorage.getItem('independent_STOCK_NAMES')) || [],
+      lastQty: localStorage.getItem('independent_LAST_QTY') || '400'
+    },
+    exportTime: new Date().toLocaleString()
+  };
+
+  const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `股票持仓_全部数据备份_${new Date().getTime()}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+  alert('✅ 全部数据导出成功！\n已包含：汇总页面 + 独立页面所有数据');
+}
+
+// 🔥 整体导入所有数据
+function importAllAppData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (!confirm('⚠️ 导入会覆盖【所有数据】！\n确定要继续吗？')) {
+    e.target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const res = JSON.parse(ev.target.result);
+      
+      // 写入汇总数据
+      if (res.summary) {
+        localStorage.setItem('summary_STOCK_DATA', JSON.stringify(res.summary.data || []));
+        localStorage.setItem('summary_STOCK_NAMES', JSON.stringify(res.summary.stockList || []));
+        localStorage.setItem('summary_LAST_QTY', res.summary.lastQty || '400');
+      }
+      
+      // 写入独立数据
+      if (res.independent) {
+        localStorage.setItem('independent_STOCK_DATA', JSON.stringify(res.independent.data || []));
+        localStorage.setItem('independent_STOCK_NAMES', JSON.stringify(res.independent.stockList || []));
+        localStorage.setItem('independent_LAST_QTY', res.independent.lastQty || '400');
+      }
+
+      alert('✅ 全部数据导入成功！');
+      initPageData('summary');
+      initPageData('independent');
+    } catch (err) {
+      alert('❌ 导入失败：文件格式错误');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function switchPage(pageId) {
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  
+  document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  
+  currentPage = pageId;
+  initPageData(pageId);
+  
+  if (pageId === 'analysis') {
+    initAnalysisPage();
+  }
+}
+
+function getPagePrefix(pageId) {
+  return pageId === 'summary' ? 'Summary' : 'Independent';
+}
+
+function getStorageKey(pageId, key) {
+  return `${pageId}_${key}`;
+}
+
+function initPageData(pageId) {
+  if (pageId === 'analysis') return;
+  
+  const prefix = getPagePrefix(pageId);
+  const STOCK_KEY = getStorageKey(pageId, 'STOCK_DATA');
+  const LIST_KEY = getStorageKey(pageId, 'STOCK_NAMES');
+  const LAST_QTY_KEY = getStorageKey(pageId, 'LAST_QTY');
+  
+  let data = JSON.parse(localStorage.getItem(STOCK_KEY)) || [];
+  let stockList = JSON.parse(localStorage.getItem(LIST_KEY)) || [];
+  let lastQty = localStorage.getItem(LAST_QTY_KEY) || '400';
+  
+  const dom = getPageDom(prefix);
+  
+  dom.time.value = now();
+  dom.qty.value = lastQty;
+  
+  renderList(stockList, dom.list);
+  switchType(dom);
+  calcTrade(dom);
+  refresh(data, stockList, dom, pageId);
+  bindPageEvents(dom, pageId);
+}
+
+function getPageDom(prefix) {
+  return {
+    time: document.getElementById(`tradeTime${prefix}`),
+    name: document.getElementById(`stockName${prefix}`),
+    type: document.getElementById(`tradeType${prefix}`),
+    price: document.getElementById(`price${prefix}`),
+    qty: document.getElementById(`quantity${prefix}`),
+    qtyLabel: document.getElementById(`qtyLabel${prefix}`),
+    qtySection: document.getElementById(`qtySection${prefix}`),
+    btnMinus: document.getElementById(`btnMinus${prefix}`),
+    btnPlus: document.getElementById(`btnPlus${prefix}`),
+    amt: document.getElementById(`tradeAmount${prefix}`),
+    fee: document.getElementById(`fee${prefix}`),
+    transfer: document.getElementById(`transfer${prefix}`),
+    tax: document.getElementById(`tax${prefix}`),
+    taxWrap: document.getElementById(`taxWrap${prefix}`),
+    net: document.getElementById(`netAmount${prefix}`),
+    pos: document.getElementById(`position${prefix}`),
+    hist: document.getElementById(`history${prefix}`),
+    list: document.getElementById(`stockList${prefix}`),
+    curPrice: document.getElementById(`currentPrice${prefix}`),
+    exportData: document.getElementById(`exportData${prefix}`),
+    importData: document.getElementById(`importData${prefix}`),
+    importFile: document.getElementById(`importFile${prefix}`),
+    exportExcel: document.getElementById(`exportExcel${prefix}`),
+    clearAll: document.getElementById(`clearAll${prefix}`),
+    resetBtn: document.getElementById(`resetBtn${prefix}`),
+    marketVal: document.getElementById(`marketVal${prefix}`),
+    floatProfit: document.getElementById(`floatProfit${prefix}`),
+    estFee: document.getElementById(`estFee${prefix}`),
+    estTf: document.getElementById(`estTf${prefix}`),
+    estTax: document.getElementById(`estTax${prefix}`),
+    realProfit: document.getElementById(`realProfit${prefix}`)
+  };
+}
+
+function bindPageEvents(dom, pageId) {
+  const prefix = getPagePrefix(pageId);
+  const STOCK_KEY = getStorageKey(pageId, 'STOCK_DATA');
+  const LIST_KEY = getStorageKey(pageId, 'STOCK_NAMES');
+  const LAST_QTY_KEY = getStorageKey(pageId, 'LAST_QTY');
+  
+  let data = JSON.parse(localStorage.getItem(STOCK_KEY)) || [];
+  let stockList = JSON.parse(localStorage.getItem(LIST_KEY)) || [];
+  
+  dom.curPrice.oninput = () => {
+    const pos = getPos(data);
+    calcCurrent(pos, dom);
+  };
+  
+  dom.type.onchange = () => switchType(dom);
+  dom.price.oninput = () => calcTrade(dom);
+  
+  dom.qty.oninput = () => {
+    handleQtyInput(dom);
+    if (dom.qty.value) {
+      localStorage.setItem(LAST_QTY_KEY, dom.qty.value);
+    }
+  };
+  
+  dom.btnMinus.onclick = () => {
+    let val = parseInt(dom.qty.value) || 400;
+    val -= 100;
+    dom.qty.value = val;
+    handleQtyInput(dom);
+    localStorage.setItem(LAST_QTY_KEY, dom.qty.value);
+  };
+  
+  dom.btnPlus.onclick = () => {
+    let val = parseInt(dom.qty.value) || 400;
+    val += 100;
+    dom.qty.value = val;
+    handleQtyInput(dom);
+    localStorage.setItem(LAST_QTY_KEY, dom.qty.value);
+  };
+  
+  dom.exportData.onclick = () => {
+    exportAllData(data, stockList, pageId);
+  };
+  
+  dom.importData.onclick = () => dom.importFile.click();
+  dom.importFile.onchange = (e) => {
+    importAllData(e, pageId);
+  };
+  
+  dom.clearAll.onclick = () => {
+    if(confirm('确定清空所有数据？')){
+      localStorage.removeItem(STOCK_KEY);
+      localStorage.removeItem(LIST_KEY);
+      localStorage.removeItem(LAST_QTY_KEY);
+      initPageData(pageId);
+    }
+  };
+  
+  dom.resetBtn.onclick = () => {
+    dom.time.value = now();
+    dom.price.value = 0;
+    calcTrade(dom);
+  };
+  
+  dom.exportExcel.onclick = () => {
+    exportExcel(data, pageId);
+  };
+  
+  document.getElementById(`tradeForm${prefix}`).onsubmit = (e) => {
+    e.preventDefault();
+    const name = dom.name.value.trim();
+    if (!name) return alert('请输入股票');
+    
+    addStock(name, stockList, dom.list, LIST_KEY);
+    
+    const t = dom.type.value;
+    const p = +dom.price.value || 0;
+    const q = +dom.qty.value || 0;
+
+    let amt = p*q, fee=0, tf=0, tax=0, net=0, profit=0;
+    if (t === 'dividend') { 
+      amt = q; 
+      net = q; 
+      profit = q;
+    } else {
+      fee = Math.max(amt*0.00008,5);
+      tf = amt*0.00001;
+      tax = t==='sell' ? amt*0.0005 : 0;
+      net = t==='buy' ? amt+fee+tf : amt-fee-tf-tax;
+      profit = t==='sell' ? net : 0;
+    }
+
+    data.unshift({ 
+      time: new Date(dom.time.value).toLocaleString(), 
+      name, 
+      type:t, 
+      price:p, 
+      qty:q, 
+      amt, 
+      fee, 
+      tf, 
+      tax, 
+      net, 
+      profit 
+    });
+    
+    localStorage.setItem(STOCK_KEY, JSON.stringify(data));
+    refresh(data, stockList, dom, pageId);
+    dom.time.value = now();
+    alert('保存成功！');
+  };
+}
+
+function now() {
+  const d = new Date();
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,0), d2 = String(d.getDate()).padStart(2,0);
+  const h = String(d.getHours()).padStart(2,0), i = String(d.getMinutes()).padStart(2,0);
+  return `${y}-${m}-${d2}T${h}:${i}`;
+}
+
+function switchType(dom) {
+  const t = dom.type.value;
+  if(t === 'dividend'){
+    dom.qtyLabel.textContent = '股息金额（元）';
+    dom.qtySection.style.display = 'none';
+  }else{
+    dom.qtyLabel.textContent = '数量（股）';
+    dom.qtySection.style.display = 'block';
+  }
+  calcTrade(dom);
+}
+
+function handleQtyInput(dom) {
+  const t = dom.type.value;
+  let v = dom.qty.value;
+
+  if(t !== 'dividend'){
+    if (v === '') {
+      calcTrade(dom);
+      return;
+    }
+
+    v = parseFloat(v);
+    if (isNaN(v)) {
+      dom.qty.value = '';
+      calcTrade(dom);
+      return;
+    }
+  }
+  calcTrade(dom);
+}
+
+function renderList(stockList, listDom) {
+  listDom.innerHTML = '';
+  stockList.forEach(s => { 
+    const o = document.createElement('option'); 
+    o.value = s; 
+    listDom.appendChild(o); 
+  });
+}
+
+function addStock(s, stockList, listDom, LIST_KEY) {
+  if (!s || stockList.includes(s)) return;
+  stockList.unshift(s);
+  localStorage.setItem(LIST_KEY, JSON.stringify(stockList));
+  renderList(stockList, listDom);
+}
+
+function calcTrade(dom) {
+  const p = +dom.price.value || 0;
+  const q = +dom.qty.value || 0;
+  const t = dom.type.value;
+  dom.taxWrap.style.display = t === 'sell' ? 'block' : 'none';
+
+  let amt = p * q, fee = 0, tf = 0, tax = 0, net = 0;
+  if (t === 'dividend') { amt = q; } else {
+    fee = Math.max(amt * 0.00008, 5);
+    tf = amt * 0.00001;
+    tax = t === 'sell' ? amt * 0.0005 : 0;
+    net = t === 'buy' ? amt + fee + tf : amt - fee - tf - tax;
+  }
+  dom.amt.textContent = amt.toFixed(2);
+  dom.fee.textContent = fee.toFixed(2);
+  dom.transfer.textContent = tf.toFixed(2);
+  dom.tax.textContent = tax.toFixed(2);
+  dom.net.textContent = net.toFixed(2);
+}
+
+function refresh(data, stockList, dom, pageId) {
+  renderPos(data, dom);
+  renderHist(data, dom, pageId);
+  const pos = getPos(data);
+  calcCurrent(pos, dom);
+}
+
+function getPos(data) {
+  let share = 0, cost = 0, feeTotal = 0, sellNet = 0, div = 0, stock = '';
+  data.forEach(item => {
+    if (item.type === 'buy') { share += item.qty; cost += item.amt; feeTotal += item.fee + item.tf; stock = item.name; }
+    else if (item.type === 'sell') { share -= item.qty; sellNet += item.net; }
+    else if (item.type === 'dividend') { div += item.net; }
+  });
+  const realCost = cost + feeTotal - div;
+  const totalProfit = (sellNet - (cost + feeTotal)) + div;
+  const avg = share > 0 ? realCost / share : 0;
+  const breakP = share > 0 ? realCost/(share*(1-0.00008-0.00001-0.0005)) : 0;
+  return { share, realCost, avg, breakP, totalProfit, div, stock };
+}
+
+function renderPos(data, dom) {
+  const p = getPos(data);
+  if (p.share <= 0) { 
+    dom.pos.innerHTML = `<div class="text-gray-500 py-2">暂无持仓</div>`; 
+    return; 
+  }
+  dom.pos.innerHTML = `
+    <div class="space-y-1 text-sm">
+      <div class="flex justify-between"><span>股票：</span><span>${p.stock}</span></div>
+      <div class="flex justify-between"><span>持仓：</span><span>${p.share} 股</span></div>
+      <div class="flex justify-between"><span>总分红：</span><span>${p.div.toFixed(2)} 元</span></div>
+      <div class="flex justify-between"><span>调整后成本：</span><span>${p.realCost.toFixed(2)} 元</span></div>
+      <div class="flex justify-between"><span>平均成本：</span><span class="text-primary">${p.avg.toFixed(2)}</span></div>
+      <div class="flex justify-between"><span>保本价：</span><span class="text-warning">${p.breakP.toFixed(2)}</span></div>
+      <div class="flex justify-between border-t pt-1 mt-1"><span>总盈亏：</span><span class="${p.totalProfit>=0?'text-success':'text-danger'}">${p.totalProfit.toFixed(2)}</span></div>
+    </div>
+  `;
+}
+
+function calcCurrent(pos, dom) {
+  const cur = +dom.curPrice.value || 0;
+  const marketVal = cur * pos.share;
+  const floatProfit = marketVal - pos.realCost;
+  const estFee = Math.max(marketVal*0.00008,5);
+  const estTf = marketVal*0.00001;
+  const estTax = marketVal*0.0005;
+  const realSellProfit = floatProfit - estFee - estTf - estTax;
+
+  dom.marketVal.textContent = marketVal.toFixed(2);
+  dom.floatProfit.textContent = floatProfit.toFixed(2);
+  dom.estFee.textContent = estFee.toFixed(2);
+  dom.estTf.textContent = estTf.toFixed(2);
+  dom.estTax.textContent = estTax.toFixed(2);
+  dom.realProfit.textContent = realSellProfit.toFixed(2);
+  dom.realProfit.className = realSellProfit >=0 ? 'text-success font-bold' : 'text-danger font-bold';
+}
+
+// 历史记录：最新时间在最上面
+function renderHist(data, dom, pageId) {
+  if (!data.length) { 
+    dom.hist.innerHTML = '<div class="text-gray-500 text-center py-3">无记录</div>'; 
+    return; 
+  }
+  
+  const sortedData = [...data].sort((a, b) => new Date(b.time) - new Date(a.time));
+  
+  dom.hist.innerHTML = sortedData.map((i,idx) => {
+    let showText = "";
+    if (i.type === "buy") {
+      const total = i.amt + i.fee + i.tf;
+      showText = `总成本 ${total.toFixed(2)}`;
+    } else if (i.type === "sell") {
+      const net = i.amt - i.fee - i.tf - i.tax;
+      showText = `净值 ${net.toFixed(2)}`;
+    } else if (i.type === "dividend") {
+      showText = `股息 ${i.qty.toFixed(2)}`;
+    }
+
+    return `
+    <div class="bg-gray-50 p-3 rounded-xl flex justify-between items-center">
+      <div>
+        <div class="font-medium text-sm">${i.name} ${i.type==='buy'?'买入':i.type==='sell'?'卖出':'股息'}</div>
+        <div class="text-xs text-gray-500">${i.time}</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="text-right text-sm">
+          <div>${i.type==='dividend' ? '¥'+i.qty : i.price.toFixed(2)+'×'+i.qty}</div>
+          <div class="text-xs">${showText}</div>
+        </div>
+        <button class="btn btn-danger" onclick="delItem('${pageId}', ${idx})">删</button>
+      </div>
+    </div>
+    `;
+  }).join('');
+}
+
+function delItem(pageId, idx) {
+  if(!confirm('确定删除这条记录？')) return;
+  
+  const STOCK_KEY = getStorageKey(pageId, 'STOCK_DATA');
+  let data = JSON.parse(localStorage.getItem(STOCK_KEY)) || [];
+  
+  data.splice(idx,1);
+  localStorage.setItem(STOCK_KEY,JSON.stringify(data));
+  initPageData(pageId);
+}
+
+function exportAllData(data, stockList, pageId) {
+  if(!data.length && !stockList.length){ 
+    alert('无数据可导出'); 
+    return; 
+  }
+  
+  const LAST_QTY_KEY = getStorageKey(pageId, 'LAST_QTY');
+  const back = { 
+    data: data, 
+    stockList: stockList, 
+    lastQty: localStorage.getItem(LAST_QTY_KEY) || '400'
+  };
+  
+  const blob = new Blob([JSON.stringify(back,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `股票持仓备份_${pageId=== 'summary' ? '汇总' : '独立'}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 500);
+  alert('导出成功！文件已保存到手机下载目录');
+}
+
+function exportExcel(data, pageId) {
+  if (!data.length) { 
+    alert('无数据可导出'); 
+    return; 
+  }
+  
+  const sheet = [['时间','股票','类型','价格','数量/金额','金额','佣金','过户费','印花税','净额','盈亏']];
+  data.forEach(i => {
+    sheet.push([
+      i.time,
+      i.name,
+      i.type==='buy'?'买入':i.type==='sell'?'卖出':'股息',
+      i.price.toFixed(2),
+      i.qty,
+      i.amt.toFixed(2),
+      i.fee.toFixed(2),
+      i.tf.toFixed(2),
+      i.tax.toFixed(2),
+      i.net.toFixed(2),
+      i.profit.toFixed(2)
+    ]);
+  });
+  
+  const ws = XLSX.utils.aoa_to_sheet(sheet);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'持仓记录');
+  XLSX.writeFile(wb, `股票持仓记录_${pageId=== 'summary' ? '汇总' : 'independent'}.xlsx`);
+  alert('Excel导出成功！已保存到下载目录');
+}
+
+function importAllData(e, pageId) {
+  const file = e.target.files[0];
+  if(!file) return;
+  
+  if(!confirm('导入会覆盖现有数据！确定继续？')){ 
+    e.target.value=''; 
+    return; 
+  }
+  
+  const STOCK_KEY = getStorageKey(pageId, 'STOCK_DATA');
+  const LIST_KEY = getStorageKey(pageId, 'STOCK_NAMES');
+  const LAST_QTY_KEY = getStorageKey(pageId, 'LAST_QTY');
+  
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const res = JSON.parse(ev.target.result);
+      const data = res.data || [];
+      const stockList = res.stockList || [];
+      
+      if(res.lastQty) localStorage.setItem(LAST_QTY_KEY, res.lastQty || '400');
+      localStorage.setItem(STOCK_KEY,JSON.stringify(data));
+      localStorage.setItem(LIST_KEY,JSON.stringify(stockList));
+      
+      alert('导入成功！');
+      initPageData(pageId);
+    }catch(err){ 
+      alert('导入失败：文件格式错误'); 
+    }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ====================== 统计分析 ======================
+function initAnalysisPage() {
+  const source = document.getElementById('analysisSource').value;
+  const STOCK_KEY = getStorageKey(source, 'STOCK_DATA');
+  let allData = JSON.parse(localStorage.getItem(STOCK_KEY)) || [];
+
+  let firstBuyTime = null;
+  const buyRecords = allData.filter(item => item.type === 'buy');
+  if (buyRecords.length > 0) {
+    const sortedBuy = [...buyRecords].sort((a, b) => new Date(a.time) - new Date(b.time));
+    firstBuyTime = sortedBuy[0].time;
+  }
+
+  const endDate = new Date();
+  let startDate = new Date();
+  if (firstBuyTime) {
+    startDate = new Date(firstBuyTime);
+  } else {
+    startDate.setDate(endDate.getDate() - 30);
+  }
+
+  document.getElementById('filterTimeEnd').value = formatDateToDatetimeLocal(endDate);
+  document.getElementById('filterTimeStart').value = formatDateToDatetimeLocal(startDate);
+
+  document.getElementById('btnFilter').onclick = executeAnalysis;
+  document.getElementById('exportAnalysisExcel').onclick = exportAnalysisExcel;
+  document.getElementById('currentAnalysisPrice').oninput = executeAnalysis;
+  document.getElementById('analysisSource').onchange = initAnalysisPage;
+}
+
+function formatDateToDatetimeLocal(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function executeAnalysis() {
+  const source = document.getElementById('analysisSource').value;
+  const stockNameFilter = document.getElementById('filterStockName').value.trim().toLowerCase();
+  const tradeTypeFilter = document.getElementById('filterTradeType').value;
+  const timeStart = document.getElementById('filterTimeStart').value;
+  const timeEnd = document.getElementById('filterTimeEnd').value;
+  const profitMin = parseFloat(document.getElementById('filterProfitMin').value) || -Infinity;
+  const profitMax = parseFloat(document.getElementById('filterProfitMax').value) || Infinity;
+  const currentPrice = parseFloat(document.getElementById('currentAnalysisPrice').value) || 0;
+  
+  const STOCK_KEY = getStorageKey(source, 'STOCK_DATA');
+  let allData = JSON.parse(localStorage.getItem(STOCK_KEY)) || [];
+  
+  let filteredData = allData.filter(item => {
+    if (stockNameFilter && !item.name.toLowerCase().includes(stockNameFilter)) return false;
+    if (tradeTypeFilter !== 'all' && item.type !== tradeTypeFilter) return false;
+    
+    const itemTime = new Date(item.time);
+    if (timeStart && itemTime < new Date(timeStart)) return false;
+    if (timeEnd && itemTime > new Date(timeEnd)) return false;
+    
+    return true;
+  });
+
+  const analyzedData = filteredData.map(item => {
+    let realProfit = 0;
+    const marketValue = currentPrice * item.qty;
+    
+    const sellFee = Math.max(marketValue * 0.00008, 5);
+    const sellTf = marketValue * 0.00001;
+    const sellTax = marketValue * 0.0005;
+
+    if (item.type === "buy" || item.type === "sell") {
+      realProfit = marketValue - sellFee - sellTf - sellTax - item.net;
+    } else if (item.type === "dividend") {
+      realProfit = item.qty;
+    }
+
+    return { ...item, realProfit };
+  });
+
+  const finalData = analyzedData.filter(i => i.realProfit >= profitMin && i.realProfit <= profitMax);
+
+  calculateCoreMetrics(finalData);
+  calculateHoldingProfit(allData, currentPrice);
+  renderAnalysisResultList(finalData);
+  renderAnalysisCharts(finalData, currentPrice);
+}
+
+function calculateCoreMetrics(data) {
+  const totalTrades = data.length;
+  let totalInvest = 0;
+  let totalSell = 0;
+  let totalDividend = 0;
+  let totalFees = 0;
+  let totalProfit = 0;
+  let winTrades = 0;
+  
+  data.forEach(item => {
+    if (item.type === 'buy') totalInvest += item.amt;
+    if (item.type === 'sell') totalSell += item.amt;
+    if (item.type === 'dividend') totalDividend += item.qty;
+    
+    totalFees += item.fee + item.tf + item.tax;
+    totalProfit += item.realProfit;
+    if (item.realProfit > 0) winTrades++;
+  });
+  
+  const winRate = totalTrades > 0 ? (winTrades / totalTrades) * 100 : 0;
+  
+  document.getElementById('totalTrades').textContent = totalTrades;
+  document.getElementById('totalInvest').textContent = totalInvest.toFixed(2);
+  document.getElementById('totalSell').textContent = totalSell.toFixed(2);
+  document.getElementById('totalDividend').textContent = totalDividend.toFixed(2);
+  document.getElementById('totalFees').textContent = totalFees.toFixed(2);
+  document.getElementById('totalProfit').textContent = totalProfit.toFixed(2);
+  document.getElementById('totalProfit').className = `stat-value ${totalProfit >= 0 ? 'text-success' : 'text-danger'}`;
+  document.getElementById('winRate').textContent = winRate.toFixed(2) + '%';
+}
+
+function calculateHoldingProfit(allData, currentPrice) {
+  let totalShares = 0;
+  let totalCost = 0;
+  let totalFeeCost = 0;
+  let totalDividend = 0;
+  
+  allData.forEach(item => {
+    if (item.type === 'buy') {
+      totalShares += item.qty;
+      totalCost += item.amt;
+      totalFeeCost += item.fee + item.tf;
+    } else if (item.type === 'sell') {
+      totalShares -= item.qty;
+    } else if (item.type === 'dividend') {
+      totalDividend += item.qty;
+    }
+  });
+  
+  const adjustedCost = totalCost + totalFeeCost - totalDividend;
+  const marketValue = currentPrice * totalShares;
+  const floatingProfit = marketValue - adjustedCost;
+  const floatingProfitRate = adjustedCost > 0 ? (floatingProfit / adjustedCost) * 100 : 0;
+  
+  let expectedSellAmount = 0;
+  if (totalShares > 0 && currentPrice > 0) {
+    const sellAmount = marketValue;
+    const fee = Math.max(sellAmount * 0.00008, 5);
+    const tf = sellAmount * 0.00001;
+    const tax = sellAmount * 0.0005;
+    expectedSellAmount = sellAmount - fee - tf - tax;
+  }
+  
+  document.getElementById('totalHoldingShares').textContent = totalShares;
+  document.getElementById('totalHoldingMarketValue').textContent = marketValue.toFixed(2);
+  document.getElementById('totalHoldingCost').textContent = adjustedCost.toFixed(2);
+  document.getElementById('totalFloatingProfit').textContent = floatingProfit.toFixed(2);
+  document.getElementById('totalFloatingProfit').className = `stat-value ${floatingProfit >= 0 ? 'text-success' : 'text-danger'}`;
+  document.getElementById('floatingProfitRate').textContent = floatingProfitRate.toFixed(2) + '%';
+  document.getElementById('expectedSellAmount').textContent = expectedSellAmount.toFixed(2);
+}
+
+// 筛选结果：最新时间在最上面
+function renderAnalysisResultList(data) {
+  const resultList = document.getElementById('analysisResultList');
+  if (!data.length) {
+    resultList.innerHTML = '<div class="text-gray-500 text-center py-3">暂无符合条件的记录</div>';
+    return;
+  }
+  
+  const sortedData = [...data].sort((a, b) => new Date(b.time) - new Date(a.time));
+  
+  resultList.innerHTML = sortedData.map(item => `
+    <div class="bg-gray-50 p-3 rounded-xl">
+      <div class="flex justify-between items-center mb-1">
+        <div class="font-medium">${item.name}</div>
+        <div class="${item.realProfit >= 0 ? 'text-success' : 'text-danger'}">盈亏：${item.realProfit.toFixed(2)}元</div>
+      </div>
+      <div class="text-xs text-gray-500 mb-1">
+        时间：${item.time} | 类型：${item.type === 'buy' ? '买入' : item.type === 'sell' ? '卖出' : '股息'}
+      </div>
+      <div class="grid grid-cols-2 gap-1 text-xs">
+        <div>价格：${item.price.toFixed(2)}元</div>
+        <div>数量：${item.qty}${item.type === 'dividend' ? '元' : '股'}</div>
+        <div>佣金：${item.fee.toFixed(2)}元</div>
+        <div>过户费：${item.tf.toFixed(2)}元</div>
+        ${item.type === 'sell' ? `<div>印花税：${item.tax.toFixed(2)}元</div>` : '<div></div>'}
+        <div>净额：${item.net.toFixed(2)}元</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAnalysisCharts(data, currentPrice) {
+  const stockHoldingsCtx = document.getElementById('stockHoldingsChart').getContext('2d');
+  const profitTrendCtx = document.getElementById('profitTrendChart').getContext('2d');
+  
+  const stockHoldings = {};
+  data.forEach(item => {
+    if (item.type === 'buy') stockHoldings[item.name] = (stockHoldings[item.name] || 0) + item.qty;
+    if (item.type === 'sell') stockHoldings[item.name] = (stockHoldings[item.name] || 0) - item.qty;
+  });
+  
+  const filteredHoldings = Object.entries(stockHoldings).filter(([n, q]) => q > 0);
+  const labels = filteredHoldings.map(([n]) => n);
+  const values = filteredHoldings.map(([n, q]) => q);
+  
+  if (holdingsChart) holdingsChart.destroy();
+  holdingsChart = new Chart(stockHoldingsCtx, {
+    type: 'pie',
+    data: { labels, datasets: [{ data: values, backgroundColor: ['#1d4ed8','#3b82f6','#60a5fa','#93c5fd'] }] },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+  
+  const sorted = [...data].sort((a,b) => new Date(a.time) - new Date(b.time));
+  const times = sorted.map(i => { const d=new Date(i.time); return `${d.getMonth()+1}/${d.getDate()}`; });
+  const profits = sorted.map(i => i.realProfit);
+  
+  let cum = 0;
+  const cumulative = profits.map(v => { cum += v; return cum; });
+  
+  if (profitChart) profitChart.destroy();
+  profitChart = new Chart(profitTrendCtx, {
+    type: 'line',
+    data: {
+      labels: times,
+      datasets: [
+        { label: '单笔盈亏', data: profits, borderColor: '#2563eb', fill: false },
+        { label: '累计盈亏', data: cumulative, borderColor: '#16a34a', fill: true }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+}
+
+function exportAnalysisExcel() {
+  const source = document.getElementById('analysisSource').value;
+  const STOCK_KEY = getStorageKey(source, 'STOCK_DATA');
+  let data = JSON.parse(localStorage.getItem(STOCK_KEY)) || [];
+  if (!data.length) { alert('无数据'); return; }
+  
+  const sheet = [['时间','股票','类型','价格','数量','金额','佣金','过户费','印花税','净额','计算盈亏']];
+  data.forEach(i => {
+    sheet.push([
+      i.time,i.name,i.type==='buy'?'买入':i.type==='sell'?'卖出':'股息',
+      i.price.toFixed(2),i.qty,i.amt.toFixed(2),i.fee.toFixed(2),i.tf.toFixed(2),i.tax.toFixed(2),i.net.toFixed(2),i.profit.toFixed(2)
+    ]);
+  });
+  
+  const ws = XLSX.utils.aoa_to_sheet(sheet);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'分析结果');
+  XLSX.writeFile(wb,`股票统计分析_${new Date().getTime()}.xlsx`);
+  alert('导出成功');
+}
+
+// 绑定整体导入导出按钮
+document.getElementById('exportAllData').onclick = exportAllAppData;
+document.getElementById('importAllData').onclick = () => document.getElementById('importAllFile').click();
+document.getElementById('importAllFile').onchange = importAllAppData;
+
+// 初始化
+initPageData('summary');
+</script>
+</body>
 </html>
